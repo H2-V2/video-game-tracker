@@ -1,5 +1,3 @@
-# video-game-tracker
-
 # Pixel Quest: Video Game Character Tracker
 
 A beginner C++ project with a retro website. The website runs the real
