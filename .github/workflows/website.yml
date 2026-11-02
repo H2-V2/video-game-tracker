@@ -1,0 +1,59 @@
+# Builds the website every time you upload changes.
+# 1. Checks that main.cpp compiles as a normal C++ program.
+# 2. Compiles main.cpp into WebAssembly (tracker.js + tracker.wasm)
+#    so it can run inside any web browser.
+# 3. Publishes index.html + the compiled program to GitHub Pages.
+
+name: Build and publish website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the project files
+        uses: actions/checkout@v4
+
+      - name: Check main.cpp compiles as a normal C++ program
+        run: g++ -std=c++17 -Wall -o tracker main.cpp
+
+      - name: Install the WebAssembly compiler (Emscripten)
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Compile main.cpp for the browser
+        run: |
+          mkdir -p site
+          cp index.html site/index.html
+          em++ main.cpp -O2 -o site/tracker.js \
+            -sMODULARIZE=1 -sEXPORT_NAME=createTracker \
+            -sINVOKE_RUN=0 -sEXIT_RUNTIME=1 -sFORCE_FILESYSTEM=1 \
+            -sEXPORTED_RUNTIME_METHODS=callMain -sENVIRONMENT=web
+
+      - name: Package the website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
